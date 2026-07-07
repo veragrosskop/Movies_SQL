@@ -1,0 +1,22 @@
+{
+    "The Shawshank Redemption": {
+        "rating": 9.3,
+        "year": 1994
+    },
+    "The Godfather": {
+        "rating": 9.2,
+        "year": 1972
+    },
+    "The Dark Knight": {
+        "rating": 9.0,
+        "year": 2008
+    },
+    "Titanic": {
+        "rating": 8.0,
+        "year": 1997
+    },
+    "Barbie": {
+        "rating": 6.8,
+        "year": 2023
+    }
+}
