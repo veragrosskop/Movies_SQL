@@ -1,9 +1,15 @@
+import os
 import random
 
-import movie_storage
+import requests
+
+import movie_storage_sql as storage
+
+OMDB_API_URL = "http://www.omdbapi.com/"
 
 
 def get_valid_title():
+    """Prompt the user for a non-empty movie title, or None to cancel."""
     while True:
 
         title = input("Enter Title (-1 to cancel): ").strip()
@@ -19,23 +25,8 @@ def get_valid_title():
             print("Invalid title. Please enter a non-empty string.")
 
 
-def get_valid_year():
-    while True:
-
-        year = input("Enter year (-1 to cancel): ")
-
-        if year == "-1":
-            return None
-
-        try:
-            if int(year) < 0 or int(year) > 2026:
-                raise ValueError
-            return int(year)
-        except ValueError:
-            print("Invalid rating. Please enter a number.")
-
-
 def get_valid_rating():
+    """Prompt the user for a rating between 0 and 10, or None to cancel."""
     while True:
 
         rating = input("Enter rating (-1 to cancel): ")
@@ -52,8 +43,41 @@ def get_valid_rating():
             print("Invalid rating. Please enter a number.")
 
 
+def fetch_movie_from_omdb(title):
+    """Look up a movie by title on OMDb and return its data, or None if not found."""
+    api_key = os.getenv("OMDB_API_KEY")
+    if not api_key:
+        print("Error: OMDB_API_KEY environment variable is not set.")
+        return None
+
+    try:
+        response = requests.get(
+            OMDB_API_URL,
+            params={"apikey": api_key, "t": title},
+            timeout=10
+        )
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        print(f"Error: could not reach OMDb API ({e}).")
+        return None
+
+    data = response.json()
+
+    if data.get("Response") == "False":
+        print(f"Error: {data.get('Error', 'movie not found.')}")
+        return None
+
+    return {
+        "title": data.get("Title"),
+        "year": int(data.get("Year", "0")[:4]),
+        "rating": float(data.get("imdbRating", 0)) if data.get("imdbRating") != "N/A" else 0.0,
+        "poster": data.get("Poster")
+    }
+
+
 def list_movies():
-    movies = movie_storage.get_movies()
+    """Display all movies, sorted by the option the user picks."""
+    movies = storage.list_movies()
 
     sort_options = {
         "1": lambda items: sorted(
@@ -117,10 +141,8 @@ def list_movies():
 
 
 def add_movie():
-    """
-    Adds a movie.
-    """
-    movies = movie_storage.get_movies()
+    """Look up a movie on OMDb by title and add it to the database."""
+    movies = storage.list_movies()
 
     title = get_valid_title()
     if title is None:
@@ -130,27 +152,16 @@ def add_movie():
         print(f"Movie '{title}' already exists.")
         return
 
-    year = get_valid_year()
-    if year is None:
+    movie = fetch_movie_from_omdb(title)
+    if movie is None:
         return
 
-    rating = get_valid_rating()
-    if rating is None:
-        return
-
-    movie_storage.add_movie(title, year, rating)
-
-    print(
-        f"Movie '{title}' from {year} "
-        f"with rating {rating} added successfully."
-    )
+    storage.add_movie(movie["title"], movie["year"], movie["rating"], movie["poster"])
 
 
 def delete_movie():
-    """
-    Deletes a movie.
-    """
-    movies = movie_storage.get_movies()
+    """Delete a movie."""
+    movies = storage.list_movies()
 
     title = get_valid_title()
     if title is None:
@@ -160,16 +171,12 @@ def delete_movie():
         print(f"Movie '{title}' not found.")
         return
 
-    movie_storage.delete_movie(title)
-
-    print(f"Movie '{title}' deleted successfully.")
+    storage.delete_movie(title)
 
 
 def update_movie():
-    """
-    Updates a movie rating.
-    """
-    movies = movie_storage.get_movies()
+    """Update a movie rating."""
+    movies = storage.list_movies()
 
     title = get_valid_title()
     if title is None:
@@ -183,20 +190,12 @@ def update_movie():
     if rating is None:
         return
 
-    movie_storage.update_movie(title, rating)
-
-    print(f"Movie '{title}' updated successfully.")
+    storage.update_movie(title, rating)
 
 
 def movie_stats():
-    """
-    This function calculates the average rating, median rating, best movie,
-    and the worst movie, and reports them.
-    :param movies:
-    :return:
-    """
-
-    movies = movie_storage.get_movies()
+    """Calculate and print the average, median, best, and worst rated movie."""
+    movies = storage.list_movies()
     print(movies)
     avg_rating = sum(movies[movie]["rating"] for movie in movies) / len(movies)
     print(f"Average rating: {avg_rating}")
@@ -220,24 +219,15 @@ def movie_stats():
 
 
 def random_movie():
-    """
-    This function chooses a random movie from the list of movies and displays it.
-    :param movies:
-    :return:
-    """
-    movies = movie_storage.get_movies()
+    """Pick and display a random movie from the database."""
+    movies = storage.list_movies()
     movie = random.choice(list(movies.keys()))
     print(f"Your movie for tonight: {movie} ({movies[movie]["year"]}), it's rated {movies[movie]["rating"]}")
 
 
 def search_movie():
-    """
-    This function searches for a movie based on the user's input.
-    :param movies:
-    :return:
-    """
-
-    movies = movie_storage.get_movies()
+    """Search for movies whose title contains the user's query."""
+    movies = storage.list_movies()
     query = input("Enter part of movie name: ")
     for movie in movies:
         if query.lower() in movie.lower():
@@ -245,25 +235,15 @@ def search_movie():
 
 
 def movies_sorted_by_rating():
-    """
-    This function sorts the movies by rating in descending order and displays them.
-    :param movies:
-    :return:
-    """
-
-    movies = movie_storage.get_movies()
-    movies_sorted = sorted(movies.items(), key= lambda item: item[1]["rating"], reverse=True)
+    """Sort the movies by rating in descending order and display them."""
+    movies = storage.list_movies()
+    movies_sorted = sorted(movies.items(), key=lambda item: item[1]["rating"], reverse=True)
     for title, info in movies_sorted:
         print(f"{title}: {info['rating']}")
 
 
-
-
-
 def main_menu():
-    """
-    Main menu of the application.
-    """
+    """Print the menu, read the user's command, and dispatch to it in a loop."""
     print("Welcome to the Movie Database!")
 
     while True:

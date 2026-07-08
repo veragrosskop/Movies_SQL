@@ -3,6 +3,9 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# SQLite database
+*.db
+
 # C extensions
 *.so
 
