@@ -5,7 +5,7 @@ import random
 import requests
 from dotenv import load_dotenv
 
-import movie_storage_sql as storage
+import movie_storage.movie_storage_sql as storage
 
 OMDB_API_URL = "http://www.omdbapi.com/"
 
