@@ -1,12 +1,15 @@
+import html
 import os
 import random
 
 import requests
+from dotenv import load_dotenv
 
 import movie_storage_sql as storage
 
 OMDB_API_URL = "http://www.omdbapi.com/"
 
+load_dotenv()
 
 def get_valid_title():
     """Prompt the user for a non-empty movie title, or None to cancel."""
@@ -118,6 +121,7 @@ def list_movies():
         print("4. Year (oldest first)")
         print("5. Alphabetically (A-Z)")
         print("6. Alphabetically (Z-A)")
+
 
         choice = input("Choose an option: ")
 
@@ -242,6 +246,41 @@ def movies_sorted_by_rating():
         print(f"{title}: {info['rating']}")
 
 
+def generate_website():
+    """Generate a static HTML website with the movie database."""
+    movies = storage.list_movies()
+
+    movie_items = []
+    for title, details in movies.items():
+        poster = details["poster"]
+        if not poster or poster == "N/A":
+            fetched = fetch_movie_from_omdb(title)
+            poster = fetched["poster"] if fetched else ""
+            if poster and poster != "N/A":
+                storage.update_poster(title, poster)
+            else:
+                poster = ""
+
+        movie_items.append(f"""        <li>
+            <div class="movie">
+                <img class="movie-poster" src="{poster}"/>
+                <div class="movie-title">{html.escape(title)}</div>
+                <div class="movie-year">{details['year']}</div>
+            </div>
+        </li>""")
+    movie_grid = "\n".join(movie_items)
+
+    with open("templates/index_template.html", "r", encoding="utf-8") as f:
+        template = f.read()
+
+    website_html = template.replace("__TEMPLATE_MOVIE_GRID__", movie_grid)
+
+    with open("static/index.html", "w", encoding="utf-8") as f:
+        f.write(website_html)
+
+    print("Website was generated successfully.")
+
+
 def main_menu():
     """Print the menu, read the user's command, and dispatch to it in a loop."""
     print("Welcome to the Movie Database!")
@@ -257,6 +296,7 @@ def main_menu():
         print("6: Random Movie")
         print("7: Search Movie")
         print("8: Movies Sorted By Rating")
+        print("9: Generate Website")
 
         choice = input("Choose an option: ")
 
@@ -288,6 +328,9 @@ def main_menu():
 
         elif choice == "8":
             movies_sorted_by_rating()
+
+        elif choice == "9":
+            generate_website()
 
         else:
             print("Invalid option. Please try again.")

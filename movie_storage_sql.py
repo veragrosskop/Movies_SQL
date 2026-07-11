@@ -72,3 +72,16 @@ def update_movie(title, rating):
             print(f"Movie '{title}' updated successfully.")
         except Exception as e:
             print(f"Error: {e}")
+
+
+def update_poster(title, poster):
+    """Update a movie's poster URL in the database."""
+    with engine.connect() as connection:
+        try:
+            connection.execute(
+                text("UPDATE movies SET poster = :poster WHERE title = :title"),
+                {"title": title, "poster": poster}
+            )
+            connection.commit()
+        except Exception as e:
+            print(f"Error: {e}")
